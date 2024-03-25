@@ -69,6 +69,9 @@ md"""
 Here we'll join on the geographical data to the npis.
 """
 
+# ╔═╡ 72199b62-2543-447e-8a6d-4619f5589f48
+
+
 # ╔═╡ d690041d-952a-4c92-8531-d8cce7b79dc6
 md"""
 # Functions
@@ -255,11 +258,16 @@ ggplot(
 	(@chain zip_code_summaries begin
 		@select(zip_code, percent_vet_pop, ends_with("per_capita"))
 		@pivot_longer(ends_with("per_capita"))
+		@mutate(
+			var"Percent of Population Veterans" = percent_vet_pop,
+			var"Specialty Type" = variable,
+			var"Specialists Per Capita" = value
+		)
 	end),
 	@aes(
-		x = percent_vet_pop,
-		y = value,
-		color = variable
+		x = var"Percent of Population Veterans",
+		y = var"Specialists Per Capita",
+		color = var"Specialty Type"
 	) 
 ) + geom_point()
 
@@ -268,12 +276,16 @@ ggplot(
 	(@chain zip_code_summaries begin
 		@select(zip_code, percent_vet_pop, ends_with("_tenure"))
 		@pivot_longer(ends_with("_tenure"))
-		@mutate(value = Dates.value(value))
+		@mutate(
+			var"Percent of Population Veterans" = percent_vet_pop,
+			var"Specialty Type" = variable,
+			var"Tenure (Years)" = Dates.value(value)/365.25,
+			)
 	end),
 	@aes(
-		x = percent_vet_pop,
-		y = value,
-		color = variable
+		x = var"Percent of Population Veterans",
+		y = var"Tenure (Years)",
+		color = var"Specialty Type"
 	) 
 ) + geom_point()
 
@@ -2266,6 +2278,7 @@ version = "3.5.0+0"
 # ╠═b46decb1-9214-414d-ac84-a907390c2d33
 # ╠═9759ce8c-5dc6-4548-9fc0-6e998e154383
 # ╠═b9d0651f-3c61-41f0-b7f3-848691c0ec30
+# ╠═72199b62-2543-447e-8a6d-4619f5589f48
 # ╟─d690041d-952a-4c92-8531-d8cce7b79dc6
 # ╠═9457b87a-4278-4d44-97df-dc8628272568
 # ╠═a96b8513-8183-4edb-9c12-3889ab4c6a3c
