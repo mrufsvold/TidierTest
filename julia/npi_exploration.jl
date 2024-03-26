@@ -4,6 +4,16 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ e45d0bd2-e868-11ee-3a28-abe9633c3c7a
 using Tidier
 
@@ -21,6 +31,9 @@ using StatsBase
 
 # ╔═╡ 5f8d3c7d-547f-41b9-a1d9-101f34144dd8
 using CategoricalArrays
+
+# ╔═╡ 82978a80-8d31-4891-89c3-177213dc010a
+using PlutoUI
 
 # ╔═╡ e5c91532-1282-40e6-9bed-2578908cefb2
 md"""
@@ -68,9 +81,6 @@ md"""
 # Merging
 Here we'll join on the geographical data to the npis.
 """
-
-# ╔═╡ 72199b62-2543-447e-8a6d-4619f5589f48
-
 
 # ╔═╡ d690041d-952a-4c92-8531-d8cce7b79dc6
 md"""
@@ -233,36 +243,52 @@ zip_code_summaries = @chain enriched_nppes begin
 		oncology_tenure = ~average_tenure(tenure,oncology),
 		physical_therapy_tenure = ~average_tenure(tenure,physical_therapy),
 		percent_vet_pop = ~first(percent_vet_pop),
-		total_pop = ~first(total_pop)
+		total_pop = ~first(total_pop),
+		state = ~first(state)
 	)
-	@select(
+	@mutate(
 		counseling_psychology_per_capita = divide_fill_zero(counseling_psychology_count, total_pop),
 		oncology_per_capita = divide_fill_zero(oncology_count, total_pop),
-		physical_therapy_per_capita = divide_fill_zero(physical_therapy_count, total_pop),
-		percent_vet_pop,
-		zip_code,
-		counseling_psychology_tenure,
-		oncology_tenure,
-		physical_therapy_tenure
+		physical_therapy_per_capita = divide_fill_zero(physical_therapy_count, total_pop)
 	)
 end
 
-# ╔═╡ b46decb1-9214-414d-ac84-a907390c2d33
-per_cap_df = @chain zip_code_summaries begin
-	@select(percent_vet_pop, ends_with("per_capita"))
-	@pivot_longer(ends_with("per_capita"))
+# ╔═╡ fccf8ecf-a362-4638-a6c4-dfb41bd61857
+@bind state_filter Select(unique(zip_code_summaries.state))
+
+# ╔═╡ f3be4291-86fa-4d37-b267-d18571a9cff7
+begin
+	specialist_columns = names(@select(zip_code_summaries, ends_with("per_capita")))
+	specialties = replace.(specialist_columns, Ref("_per_capita" => ""))
+	@bind specialty_filter MultiCheckBox(specialties)
 end
+
+# ╔═╡ 9d849801-7583-4f22-9c5d-05ddf85a3dc1
+md"""
+# Visualization
+Here we'll chart some dimensions against the veteran population.
+
+PlutoUI let's us build quick UI elements to make interactive exploration even more fun!
+
+The state filter below is currently set to: $state_filter
+
+The specialty types that are currently included are: $(join(specialty_filter, ", "))
+
+Try changing them to see what happens!
+"""
 
 # ╔═╡ 9759ce8c-5dc6-4548-9fc0-6e998e154383
 ggplot(
 	(@chain zip_code_summaries begin
+		@filter(state==!!state_filter)
 		@select(zip_code, percent_vet_pop, ends_with("per_capita"))
 		@pivot_longer(ends_with("per_capita"))
 		@mutate(
 			var"Percent of Population Veterans" = percent_vet_pop,
-			var"Specialty Type" = variable,
+			var"Specialty Type" = replace(variable, "_per_capita" => ""),
 			var"Specialists Per Capita" = value
 		)
+		@filter(var"Specialty Type" in !!specialty_filter)
 	end),
 	@aes(
 		x = var"Percent of Population Veterans",
@@ -274,13 +300,15 @@ ggplot(
 # ╔═╡ b9d0651f-3c61-41f0-b7f3-848691c0ec30
 ggplot(
 	(@chain zip_code_summaries begin
+		@filter(!!state_filter==state)
 		@select(zip_code, percent_vet_pop, ends_with("_tenure"))
 		@pivot_longer(ends_with("_tenure"))
 		@mutate(
 			var"Percent of Population Veterans" = percent_vet_pop,
-			var"Specialty Type" = variable,
+			var"Specialty Type" = replace(variable, "_tenure" => ""),
 			var"Tenure (Years)" = Dates.value(value)/365.25,
 			)
+		@filter(var"Specialty Type" in !!specialty_filter)
 	end),
 	@aes(
 		x = var"Percent of Population Veterans",
@@ -358,6 +386,7 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 InlineStrings = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Tidier = "f0413319-3358-4bb0-8e7c-0c83523a93bd"
 
@@ -365,6 +394,7 @@ Tidier = "f0413319-3358-4bb0-8e7c-0c83523a93bd"
 CSV = "~0.10.13"
 CategoricalArrays = "~0.10.8"
 InlineStrings = "~1.4.0"
+PlutoUI = "~0.7.58"
 StatsBase = "~0.34.2"
 Tidier = "~1.2.1"
 """
@@ -375,7 +405,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.0"
 manifest_format = "2.0"
-project_hash = "bc47b83d763bdc359b93942b862d0615298c550d"
+project_hash = "b433ca519f8daac66097942a29c0b245e4bf3db2"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -397,6 +427,12 @@ weakdeps = ["ChainRulesCore", "Test"]
 git-tree-sha1 = "222ee9e50b98f51b5d78feb93dd928880df35f06"
 uuid = "398f06c4-4d28-53ec-89ca-5b2656b7603d"
 version = "0.3.0"
+
+[[deps.AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "0f748c81756f2e5e6854298f11ad8b2dfae6911a"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.3.0"
 
 [[deps.AbstractTrees]]
 git-tree-sha1 = "2d9c9a55f9c93e8887ad391fbae72f8ef55e1177"
@@ -1015,6 +1051,18 @@ git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.23"
 
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "179267cfa5e712760cd43dcae385d7ea90cc25a4"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.5"
+
+[[deps.HypertextLiteral]]
+deps = ["Tricks"]
+git-tree-sha1 = "7134810b1afce04bbc1045ca1985fbe81ce17653"
+uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "0.9.5"
+
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]
 git-tree-sha1 = "8b72179abc660bfab5e28472e019392b97d0985c"
@@ -1338,6 +1386,11 @@ git-tree-sha1 = "c1dd6d7978c12545b4179fb6153b9250c96b0075"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.3"
 
+[[deps.MIMEs]]
+git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
+uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
+version = "0.1.4"
+
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl"]
 git-tree-sha1 = "72dc3cf284559eb8f53aa593fe62cb33f83ed0c0"
@@ -1609,6 +1662,12 @@ deps = ["ColorSchemes", "Colors", "Dates", "PrecompileTools", "Printf", "Random"
 git-tree-sha1 = "7b1a9df27f072ac4c9c7cbe5efb198489258d1f5"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.1"
+
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
+git-tree-sha1 = "71a22244e352aa8c5f0f2adde4150f62368a3f2e"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.58"
 
 [[deps.PolygonOps]]
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
@@ -2069,6 +2128,11 @@ weakdeps = ["Random", "Test"]
     [deps.TranscodingStreams.extensions]
     TestExt = ["Test", "Random"]
 
+[[deps.Tricks]]
+git-tree-sha1 = "eae1bb484cd63b36999ee58be2de6c178105112f"
+uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
+version = "0.1.8"
+
 [[deps.TriplotBase]]
 git-tree-sha1 = "4d4ed7f294cda19382ff7de4c137d24d16adc89b"
 uuid = "981d1d27-644d-49a2-9326-4793e63143c3"
@@ -2261,6 +2325,7 @@ version = "3.5.0+0"
 # ╠═6eb7f80c-fd6e-4c2e-ad09-619e34990121
 # ╠═ea7af8ee-3187-46ea-a3b4-451d6ab4a81d
 # ╠═5f8d3c7d-547f-41b9-a1d9-101f34144dd8
+# ╠═82978a80-8d31-4891-89c3-177213dc010a
 # ╟─e5c91532-1282-40e6-9bed-2578908cefb2
 # ╟─ea07d294-e58d-4b74-822a-e8ca524e0e59
 # ╟─1e05862c-056d-49e0-a75f-264a86c8d64c
@@ -2275,10 +2340,11 @@ version = "3.5.0+0"
 # ╟─769e30f2-ba8e-45e9-a141-db429ee17b64
 # ╠═966c8105-dd1e-4ef8-97e1-5ddc09ccfa67
 # ╠═b31b132f-a1bb-4537-b2da-d0ef15a29c81
-# ╠═b46decb1-9214-414d-ac84-a907390c2d33
+# ╠═9d849801-7583-4f22-9c5d-05ddf85a3dc1
+# ╠═fccf8ecf-a362-4638-a6c4-dfb41bd61857
+# ╠═f3be4291-86fa-4d37-b267-d18571a9cff7
 # ╠═9759ce8c-5dc6-4548-9fc0-6e998e154383
 # ╠═b9d0651f-3c61-41f0-b7f3-848691c0ec30
-# ╠═72199b62-2543-447e-8a6d-4619f5589f48
 # ╟─d690041d-952a-4c92-8531-d8cce7b79dc6
 # ╠═9457b87a-4278-4d44-97df-dc8628272568
 # ╠═a96b8513-8183-4edb-9c12-3889ab4c6a3c
