@@ -1,6 +1,14 @@
 ### A Pluto.jl notebook ###
 # v0.19.40
 
+#> [frontmatter]
+#> title = "Provider Specialty and Veteran Population"
+#> date = "2024-03-26"
+#> description = "Exploring the intersection of provider and veteran populations across the United States"
+#> 
+#>     [[frontmatter.author]]
+#>     name = "Micah Rufsvold"
+
 using Markdown
 using InteractiveUtils
 
@@ -254,7 +262,7 @@ zip_code_summaries = @chain enriched_nppes begin
 end
 
 # ╔═╡ fccf8ecf-a362-4638-a6c4-dfb41bd61857
-@bind state_filter Select(unique(zip_code_summaries.state))
+@bind state_filter zip_code_summaries.state |> unique |> sort |> Select
 
 # ╔═╡ f3be4291-86fa-4d37-b267-d18571a9cff7
 begin
@@ -2340,7 +2348,7 @@ version = "3.5.0+0"
 # ╟─769e30f2-ba8e-45e9-a141-db429ee17b64
 # ╠═966c8105-dd1e-4ef8-97e1-5ddc09ccfa67
 # ╠═b31b132f-a1bb-4537-b2da-d0ef15a29c81
-# ╠═9d849801-7583-4f22-9c5d-05ddf85a3dc1
+# ╟─9d849801-7583-4f22-9c5d-05ddf85a3dc1
 # ╠═fccf8ecf-a362-4638-a6c4-dfb41bd61857
 # ╠═f3be4291-86fa-4d37-b267-d18571a9cff7
 # ╠═9759ce8c-5dc6-4548-9fc0-6e998e154383
